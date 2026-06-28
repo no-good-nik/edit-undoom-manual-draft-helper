@@ -16,7 +16,7 @@
       </label>
 
       <label>
-        Source mapping JSON
+        Source mapping JSON <span class="hint">Object keyed by handle, or array with instagram_user_name fields</span>
         <textarea id="mapping" spellcheck="false"></textarea>
       </label>
 
@@ -29,17 +29,20 @@
 
       <section>
         <h2>Mapping shape</h2>
-        <pre><code>{
-  "instagram_or_page_handle": {
-    "label": "Venue Display Name",
+        <pre><code>[
+  {
+    "instagram_user_name": "instagram_or_page_handle",
     "aliases": ["optional_alt_handle"],
+    "label": "Venue Display Name",
     "parser_type": "optional_parser_type_from_venues_sheet",
+    "source_url": "https://example.com/events",
     "event_venue": "Venue Display Name",
     "new_type_tags": "Music, Queer Events",
     "new_area_tags": "Downtown",
-    "private_bucket_tag": "#Stuff to Do [hash-stuff-to-do]"
+    "private_bucket_tag": "#Stuff to Do [hash-stuff-to-do]",
+    "extra_params": {}
   }
-}</code></pre>
+]</code></pre>
       </section>
     </main>
 

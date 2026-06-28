@@ -52,21 +52,26 @@ Firefox temporary add-ons disappear when Firefox restarts.
 
 ## Mapping
 
-Open the extension Options page to edit the mapping JSON. Keys are Instagram/Facebook handles or other source identifiers. Use `aliases` for alternate spellings.
+Open the extension Options page to edit the mapping JSON. The easiest format is an array copied from `config/venues-template.json`; fill in `instagram_user_name` for each venue/org you want the extension to recognize. Use `aliases` for alternate spellings.
 
 ```json
-{
-  "osbornetaphouse": {
-    "label": "The Osborne Taphouse",
+[
+  {
+    "instagram_user_name": "osbornetaphouse",
     "aliases": ["theosbornetaphouse"],
+    "label": "The Osborne Taphouse",
     "parser_type": "osborne_taphouse_manitoba_music",
+    "source_url": "https://www.manitobamusic.com/profiles/view,499/theosbornetaphouse",
     "event_venue": "The Osborne Taphouse",
     "new_type_tags": "Music",
     "new_area_tags": "Osborne Village",
-    "private_bucket_tag": "#Stuff to Do [hash-stuff-to-do]"
+    "private_bucket_tag": "#Stuff to Do [hash-stuff-to-do]",
+    "extra_params": {}
   }
-}
+]
 ```
+
+The older object format keyed by handle is still supported, so existing saved mappings keep working.
 
 ## Validate
 

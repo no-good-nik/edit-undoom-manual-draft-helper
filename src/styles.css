@@ -135,3 +135,10 @@ pre {
   border-radius: 6px;
   padding: 12px;
 }
+
+.hint {
+  display: block;
+  color: #62645d;
+  font-size: 12px;
+  font-weight: 500;
+}

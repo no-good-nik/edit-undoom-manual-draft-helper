@@ -42,6 +42,22 @@ function sourceFromUrl(urlText) {
 }
 
 function mappingEntries(mapping) {
+  if (Array.isArray(mapping)) {
+    return mapping
+      .map((value) => {
+        const key = normalizeHandle(
+          value?.instagram_user_name
+          || value?.instagram_username
+          || value?.source_username
+          || value?.handle
+          || value?.username
+          || ''
+        );
+        return key ? [key, value || {}] : null;
+      })
+      .filter(Boolean);
+  }
+
   return Object.entries(mapping || {}).map(([key, value]) => [normalizeHandle(key), value || {}]);
 }
 
