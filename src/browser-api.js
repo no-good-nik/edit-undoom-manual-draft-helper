@@ -33,3 +33,20 @@ function openOptionsPage() {
   }
   createTab(browserApi.runtime.getURL('src/options.html'));
 }
+
+function executeActiveTabFunction(tabId, func) {
+  return new Promise((resolve) => {
+    if (!browserApi.scripting?.executeScript || !tabId) {
+      resolve(null);
+      return;
+    }
+
+    browserApi.scripting.executeScript({ target: { tabId }, func }, (results) => {
+      if (browserApi.runtime?.lastError) {
+        resolve(null);
+        return;
+      }
+      resolve(results?.[0]?.result || null);
+    });
+  });
+}

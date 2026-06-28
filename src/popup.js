@@ -17,6 +17,53 @@ function setStatus(message, tone = '') {
   statusEl.className = 'status ' + tone;
 }
 
+function extractInstagramHandleFromDocument() {
+  const reserved = new Set(['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'accounts', 'direct']);
+  const clean = (value) => String(value || '')
+    .trim()
+    .replace(/^@+/, '')
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  const handleFromHref = (href) => {
+    try {
+      const url = new URL(href, location.href);
+      if (!/(^|\.)instagram\.com$/i.test(url.hostname.replace(/^www\./, ''))) return '';
+      const part = clean(url.pathname.split('/').filter(Boolean)[0] || '');
+      return part && !reserved.has(part) ? part : '';
+    } catch {
+      return '';
+    }
+  };
+
+  const articleHeaderHandle = Array.from(document.querySelectorAll('article header a[href], article a[href], main a[href]'))
+    .map((link) => handleFromHref(link.getAttribute('href')))
+    .find(Boolean);
+  if (articleHeaderHandle) return articleHeaderHandle;
+
+  const metaUrlHandle = Array.from(document.querySelectorAll('meta[property="og:url"], link[rel="canonical"]'))
+    .map((node) => handleFromHref(node.getAttribute('content') || node.getAttribute('href')))
+    .find(Boolean);
+  if (metaUrlHandle) return metaUrlHandle;
+
+  const text = document.documentElement.innerHTML || '';
+  const usernameMatch = text.match(/"owner"\s*:\s*\{[^}]*"username"\s*:\s*"([^"\\]+)"/)
+    || text.match(/"username"\s*:\s*"([^"\\]+)"/);
+  const username = clean(usernameMatch?.[1] || '');
+  return username && !reserved.has(username) ? username : '';
+}
+
+async function sourceFromActiveTab(tab) {
+  const source = sourceFromUrl(tab?.url || '');
+  if (source.ok || !sourceNeedsInstagramPageLookup(tab?.url || '')) return source;
+
+  const handle = await executeActiveTabFunction(tab.id, extractInstagramHandleFromDocument);
+  if (!handle) {
+    return { ok: false, reason: 'Could not read the Instagram username from this post. Try waiting for the post to fully load, then click the extension again.' };
+  }
+
+  return sourceFromInstagramHandle(handle, tab.url);
+}
+
 function renderMatch(source, mapping) {
   activeSource = source;
   activeMapping = mapping;
@@ -33,7 +80,7 @@ function renderMatch(source, mapping) {
 async function init() {
   optionsButton.addEventListener('click', openOptionsPage);
   const tab = await queryActiveTab();
-  const source = sourceFromUrl(tab?.url || '');
+  const source = await sourceFromActiveTab(tab);
 
   if (!source.ok) {
     setStatus(source.reason, 'warn');

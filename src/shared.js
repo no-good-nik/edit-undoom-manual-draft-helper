@@ -1,9 +1,36 @@
+const INSTAGRAM_RESERVED_ROUTES = ['p', 'reel', 'reels', 'stories', 'explore', 'tv'];
+
 function normalizeHandle(value) {
   return String(value || '')
     .trim()
     .replace(/^@+/, '')
     .replace(/\/+$/, '')
     .toLowerCase();
+}
+
+function instagramHandleFromPathPart(value) {
+  const handle = normalizeHandle(value);
+  if (!handle || INSTAGRAM_RESERVED_ROUTES.includes(handle)) return '';
+  return handle;
+}
+
+function sourceFromInstagramHandle(handle, sourceUrl) {
+  const normalized = instagramHandleFromPathPart(handle);
+  if (!normalized) {
+    return { ok: false, reason: 'Could not find an Instagram profile handle on this page.' };
+  }
+  return { ok: true, source_type: 'instagram', handle: normalized, source_url: sourceUrl || '' };
+}
+
+function sourceNeedsInstagramPageLookup(urlText) {
+  try {
+    const url = new URL(urlText);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    const firstPart = normalizeHandle(url.pathname.split('/').filter(Boolean)[0] || '');
+    return host === 'instagram.com' && INSTAGRAM_RESERVED_ROUTES.includes(firstPart);
+  } catch {
+    return false;
+  }
 }
 
 function sourceFromUrl(urlText) {
@@ -18,11 +45,11 @@ function sourceFromUrl(urlText) {
   const parts = url.pathname.split('/').filter(Boolean);
 
   if (host === 'instagram.com') {
-    const handle = normalizeHandle(parts[0] || '');
-    if (!handle || ['p', 'reel', 'stories', 'explore'].includes(handle)) {
-      return { ok: false, reason: 'Open an Instagram profile page or a post URL that includes the profile handle.' };
+    const handle = instagramHandleFromPathPart(parts[0] || '');
+    if (!handle) {
+      return { ok: false, reason: 'Open an Instagram profile page, or click the extension after the Instagram post page has loaded.' };
     }
-    return { ok: true, source_type: 'instagram', handle, source_url: url.toString() };
+    return sourceFromInstagramHandle(handle, url.toString());
   }
 
   if (host === 'facebook.com') {
