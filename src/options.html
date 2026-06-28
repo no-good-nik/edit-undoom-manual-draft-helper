@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Edit Undoom Draft Helper Options</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="options">
+    <main>
+      <h1>Edit Undoom Draft Helper Options</h1>
+
+      <label>
+        Manual draft form URL
+        <input id="formUrl" type="url" placeholder="https://n8n.editundoom.ca/form/manual-event-draft">
+      </label>
+
+      <label>
+        Source mapping JSON
+        <textarea id="mapping" spellcheck="false"></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="saveButton" class="primary" type="button">Save</button>
+        <button id="resetButton" type="button">Reset sample mapping</button>
+      </div>
+
+      <p id="status" class="status"></p>
+
+      <section>
+        <h2>Mapping shape</h2>
+        <pre><code>{
+  "instagram_or_page_handle": {
+    "label": "Venue Display Name",
+    "aliases": ["optional_alt_handle"],
+    "parser_type": "optional_parser_type_from_venues_sheet",
+    "event_venue": "Venue Display Name",
+    "new_type_tags": "Music, Queer Events",
+    "new_area_tags": "Downtown",
+    "private_bucket_tag": "#Stuff to Do [hash-stuff-to-do]"
+  }
+}</code></pre>
+      </section>
+    </main>
+
+    <script src="browser-api.js"></script>
+    <script src="default-config.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

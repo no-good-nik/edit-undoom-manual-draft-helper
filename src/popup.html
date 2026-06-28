@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Edit Undoom Draft Helper</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="popup">
+    <main>
+      <header>
+        <h1>Draft Helper</h1>
+        <button id="optionsButton" type="button">Options</button>
+      </header>
+
+      <section id="status" class="status">Checking this tab...</section>
+
+      <dl id="details" class="details" hidden>
+        <dt>Source</dt>
+        <dd id="sourceValue"></dd>
+        <dt>Matched venue</dt>
+        <dd id="venueValue"></dd>
+        <dt>Type tags</dt>
+        <dd id="typeTagsValue"></dd>
+        <dt>Area tags</dt>
+        <dd id="areaTagsValue"></dd>
+      </dl>
+
+      <button id="draftButton" class="primary" type="button" disabled>Open Manual Draft Form</button>
+      <button id="sourceButton" type="button" disabled>Open Source in New Tab</button>
+    </main>
+
+    <script src="browser-api.js"></script>
+    <script src="default-config.js"></script>
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

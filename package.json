@@ -1,0 +1,10 @@
+{
+  "name": "edit-undoom-manual-draft-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser extension for opening the Edit Undoom n8n manual event draft form from social/event source pages.",
+  "scripts": {
+    "validate": "node scripts/validate-extension.js"
+  },
+  "license": "MIT"
+}
