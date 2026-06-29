@@ -193,6 +193,7 @@ function queryParamsForDraft(source, mappingValue, tagOptions = {}) {
   const areaTags = classifyDraftTags(mappingValue.new_area_tags || mappingValue.default_area_tags || '', tagOptions.area_tags, 'area-');
 
   params.set('source_url', source.source_url || '');
+  params.set('image_url', source.image_url || mappingValue.image_url || mappingValue.default_image_url || '');
   params.set('event_venue', mappingValue.event_venue || mappingValue.default_venue || mappingValue.label || '');
   params.set('manual_type_tags', typeTags.existing.join(', '));
   params.set('manual_area_tags', areaTags.existing.join(', '));

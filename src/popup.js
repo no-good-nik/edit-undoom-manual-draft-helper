@@ -99,19 +99,84 @@ function extractInstagramHandleFromDocument() {
   return username && !reserved.has(username) ? username : '';
 }
 
+function extractInstagramPostImageFromDocument() {
+  const imageUrlFromValue = (value) => {
+    const text = String(value || '').trim();
+    if (!text || text.startsWith('data:') || text.startsWith('blob:')) return '';
+    try {
+      return new URL(text, location.href).toString();
+    } catch {
+      return '';
+    }
+  };
+  const isVisible = (element) => {
+    if (!element || !element.isConnected) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle(element);
+    return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || 1) > 0;
+  };
+  const visibleDialogs = Array.from(document.querySelectorAll('[role="dialog"], div[aria-modal="true"]'))
+    .filter(isVisible);
+  const scopedRoots = [
+    ...visibleDialogs,
+    ...visibleDialogs.flatMap((dialog) => Array.from(dialog.querySelectorAll('article')).filter(isVisible)),
+    ...Array.from(document.querySelectorAll('main article')).filter(isVisible),
+    document
+  ];
+  const candidates = [];
+
+  scopedRoots.forEach((root, rootIndex) => {
+    Array.from(root.querySelectorAll('img[src], img[srcset]')).forEach((image, imageIndex) => {
+      if (!isVisible(image)) return;
+      const rect = image.getBoundingClientRect();
+      const src = imageUrlFromValue(image.currentSrc || image.src);
+      if (!src) return;
+      const alt = String(image.alt || '').toLowerCase();
+      const role = String(image.getAttribute('role') || '').toLowerCase();
+      const insideHeader = Boolean(image.closest('header'));
+      const likelyAvatar = insideHeader || /profile picture|avatar/.test(alt) || rect.width < 180 || rect.height < 180;
+      if (likelyAvatar) return;
+      const inDialog = visibleDialogs.some((dialog) => dialog.contains(image));
+      candidates.push({
+        src,
+        score:
+          (rect.width * rect.height)
+          + (inDialog ? 1000000 : 0)
+          + (role === 'presentation' ? 5000 : 0)
+          - (rootIndex * 100)
+          - imageIndex
+      });
+    });
+  });
+
+  const visibleImage = candidates.sort((a, b) => b.score - a.score)[0]?.src;
+  if (visibleImage) return visibleImage;
+
+  return Array.from(document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]'))
+    .map((node) => imageUrlFromValue(node.getAttribute('content')))
+    .find(Boolean) || '';
+}
+
 async function sourceFromActiveTab(tab) {
-  const source = sourceFromUrl(tab?.url || '');
-  if (source.ok || !sourceNeedsInstagramPageLookup(tab?.url || '')) return source;
+  const url = tab?.url || '';
+  const source = sourceFromUrl(url);
+  const attachInstagramImage = async (value) => {
+    if (!value.ok || value.source_type !== 'instagram' || !sourceNeedsInstagramPageLookup(url)) return value;
+    const imageUrl = await executeActiveTabFunction(tab.id, extractInstagramPostImageFromDocument);
+    return imageUrl ? { ...value, image_url: imageUrl } : value;
+  };
+  if (source.ok || !sourceNeedsInstagramPageLookup(url)) return await attachInstagramImage(source);
 
   const titleHandle = instagramHandleFromTitle(tab?.title || '');
-  if (titleHandle) return sourceFromInstagramHandle(titleHandle, tab.url);
+  if (titleHandle) return await attachInstagramImage(sourceFromInstagramHandle(titleHandle, tab.url));
 
   const handle = await executeActiveTabFunction(tab.id, extractInstagramHandleFromDocument);
   if (!handle) {
     return { ok: false, reason: 'Could not read the Instagram username from this post. Try waiting for the post to fully load, then click the extension again.' };
   }
 
-  return sourceFromInstagramHandle(handle, tab.url);
+  return await attachInstagramImage(sourceFromInstagramHandle(handle, tab.url));
 }
 
 function openOptionsForActiveSource() {
