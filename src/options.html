@@ -21,6 +21,11 @@
       </label>
 
       <label>
+        Ghost tag options feed URL
+        <input id="tagOptionsUrl" type="url" placeholder="https://n8n.editundoom.ca/webhook/extension-ghost-tag-options-production">
+      </label>
+
+      <label>
         Sheet sync webhook URL
         <input id="syncWebhookUrl" type="url" placeholder="https://n8n.editundoom.ca/webhook/extension-venue-instagram-sync-production">
       </label>
@@ -45,12 +50,12 @@
             <input id="newSourceUrl" type="url" placeholder="https://www.instagram.com/examplewpg/">
           </label>
           <label>
-            Type tags
-            <input id="newTypeTags" type="text" placeholder="Music, Queer Events">
+            Type tags <span class="hint">Select one or more public type tags from prod Ghost</span>
+            <select id="newTypeTags" multiple></select>
           </label>
           <label>
-            Area tags
-            <input id="newAreaTags" type="text" placeholder="Downtown">
+            Area tags <span class="hint">Select one or more public area tags from prod Ghost</span>
+            <select id="newAreaTags" multiple></select>
           </label>
           <label>
             Private bucket tag

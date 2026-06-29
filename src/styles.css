@@ -48,7 +48,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   box-sizing: border-box;
   width: 100%;
   border: 1px solid #c7c7bf;
@@ -62,6 +63,10 @@ textarea {
   min-height: 420px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
+}
+
+select[multiple] {
+  min-height: 132px;
 }
 
 button {
@@ -155,14 +160,4 @@ pre {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
-}
-
-select {
-  box-sizing: border-box;
-  width: 100%;
-  border: 1px solid #c7c7bf;
-  border-radius: 6px;
-  padding: 10px;
-  font: inherit;
-  background: #fff;
 }

@@ -1,5 +1,6 @@
 const formUrlEl = document.getElementById('formUrl');
 const mappingFeedUrlEl = document.getElementById('mappingFeedUrl');
+const tagOptionsUrlEl = document.getElementById('tagOptionsUrl');
 const syncWebhookUrlEl = document.getElementById('syncWebhookUrl');
 const mappingEl = document.getElementById('mapping');
 const statusEl = document.getElementById('status');
@@ -19,9 +20,10 @@ function setStatus(message, tone = '') {
   statusEl.className = 'status ' + tone;
 }
 
-function render(mapping, formUrl, mappingFeedUrl, syncWebhookUrl) {
+function render(mapping, formUrl, mappingFeedUrl, tagOptionsUrl, syncWebhookUrl) {
   formUrlEl.value = formUrl || DEFAULT_FORM_URL;
   mappingFeedUrlEl.value = mappingFeedUrl || DEFAULT_MAPPING_FEED_URL;
+  tagOptionsUrlEl.value = tagOptionsUrl || DEFAULT_TAG_OPTIONS_URL;
   syncWebhookUrlEl.value = syncWebhookUrl || DEFAULT_SYNC_WEBHOOK_URL;
   mappingEl.value = JSON.stringify(mapping || DEFAULT_MAPPING, null, 2);
 }
@@ -39,6 +41,75 @@ function parseMappingText() {
   }
 }
 
+function selectedMultiSelectValues(selectEl) {
+  return Array.from(selectEl.selectedOptions)
+    .map((option) => option.value.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function normalizeTagOption(tag) {
+  const name = String(tag?.name || tag?.label || tag?.option || '').replace(/\s*\[[^\]]+\]\s*$/, '').trim();
+  const slug = String(tag?.slug || '').trim();
+  if (!name) return null;
+  return {
+    name,
+    slug,
+    option: slug ? name + ' [' + slug + ']' : name
+  };
+}
+
+function populateMultiSelect(selectEl, tags) {
+  const selected = new Set(
+    Array.from(selectEl.selectedOptions)
+      .flatMap((option) => [option.value, option.dataset.slug])
+      .filter(Boolean)
+  );
+  selectEl.textContent = '';
+  for (const tag of tags.map(normalizeTagOption).filter(Boolean)) {
+    const option = document.createElement('option');
+    option.value = tag.name;
+    option.textContent = tag.name;
+    if (tag.slug) option.dataset.slug = tag.slug;
+    if (selected.has(tag.name) || selected.has(tag.slug)) option.selected = true;
+    selectEl.append(option);
+  }
+}
+
+function populateBucketSelect(selectEl, tags) {
+  const currentValue = selectEl.value || '#Stuff to Do [hash-stuff-to-do]';
+  const normalizedTags = tags.map(normalizeTagOption).filter(Boolean);
+  if (!normalizedTags.length) return;
+  selectEl.textContent = '';
+  for (const tag of normalizedTags) {
+    const option = document.createElement('option');
+    option.value = tag.option;
+    option.textContent = tag.name;
+    if (tag.option === currentValue) option.selected = true;
+    selectEl.append(option);
+  }
+}
+
+async function fetchTagOptions(tagOptionsUrl) {
+  const url = String(tagOptionsUrl || '').trim();
+  if (!url) return { skipped: true, type_tags: [], area_tags: [], bucket_tags: [] };
+
+  const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+  const text = await response.text();
+  if (!response.ok) throw new Error('Ghost tag options fetch failed ' + response.status + ': ' + text.slice(0, 300));
+
+  let parsed;
+  try { parsed = text ? JSON.parse(text) : null; }
+  catch (error) { throw new Error('Ghost tag options response was not JSON: ' + error.message); }
+
+  return {
+    skipped: false,
+    type_tags: Array.isArray(parsed?.type_tags) ? parsed.type_tags : [],
+    area_tags: Array.isArray(parsed?.area_tags) ? parsed.area_tags : [],
+    bucket_tags: Array.isArray(parsed?.bucket_tags) ? parsed.bucket_tags : []
+  };
+}
+
 function venuePayloadFromForm() {
   const handle = normalizeHandle(newInstagramUserNameEl.value);
   const venueName = newVenueNameEl.value.trim();
@@ -52,11 +123,11 @@ function venuePayloadFromForm() {
     parser_type: newParserTypeEl.value.trim() || 'instagram_manual_review',
     source_url: newSourceUrlEl.value.trim() || instagramProfileUrl(handle),
     event_venue: venueName,
-    new_type_tags: newTypeTagsEl.value.trim(),
-    new_area_tags: newAreaTagsEl.value.trim(),
+    new_type_tags: selectedMultiSelectValues(newTypeTagsEl),
+    new_area_tags: selectedMultiSelectValues(newAreaTagsEl),
     private_bucket_tag: newPrivateBucketTagEl.value || '#Stuff to Do [hash-stuff-to-do]',
-    default_type_tags: newTypeTagsEl.value.trim(),
-    default_area_tags: newAreaTagsEl.value.trim(),
+    default_type_tags: selectedMultiSelectValues(newTypeTagsEl),
+    default_area_tags: selectedMultiSelectValues(newAreaTagsEl),
     default_bucket_tag: newPrivateBucketTagEl.value || '#Stuff to Do [hash-stuff-to-do]',
     extra_params: {}
   };
@@ -139,8 +210,8 @@ function clearAddVenueForm() {
   newVenueNameEl.value = '';
   newParserTypeEl.value = '';
   newSourceUrlEl.value = '';
-  newTypeTagsEl.value = '';
-  newAreaTagsEl.value = '';
+  for (const option of newTypeTagsEl.options) option.selected = false;
+  for (const option of newAreaTagsEl.options) option.selected = false;
   newPrivateBucketTagEl.value = '#Stuff to Do [hash-stuff-to-do]';
 }
 
@@ -148,12 +219,15 @@ async function loadOptions() {
   const config = await storageGet({
     formUrl: DEFAULT_FORM_URL,
     mappingFeedUrl: DEFAULT_MAPPING_FEED_URL,
+    tagOptionsUrl: DEFAULT_TAG_OPTIONS_URL,
     syncWebhookUrl: DEFAULT_SYNC_WEBHOOK_URL,
     mapping: DEFAULT_MAPPING
   });
 
   let mapping = config.mapping || DEFAULT_MAPPING;
   let loadedFromSheet = false;
+  let tagOptionsLoaded = false;
+  const warnings = [];
   try {
     const feed = await fetchSheetMapping(config.mappingFeedUrl || DEFAULT_MAPPING_FEED_URL);
     if (!feed.skipped && feed.mapping) {
@@ -162,11 +236,24 @@ async function loadOptions() {
       await storageSet({ mapping });
     }
   } catch (error) {
-    setStatus('Could not load mapping from Google Sheets. Using saved local mapping: ' + error.message, 'warn');
+    warnings.push('Could not load mapping from Google Sheets. Using saved local mapping: ' + error.message);
   }
 
-  render(mapping, config.formUrl, config.mappingFeedUrl, config.syncWebhookUrl);
-  if (loadedFromSheet) setStatus('Loaded mapping from Google Sheets.', 'ok');
+  render(mapping, config.formUrl, config.mappingFeedUrl, config.tagOptionsUrl, config.syncWebhookUrl);
+
+  try {
+    const tagOptions = await fetchTagOptions(config.tagOptionsUrl || DEFAULT_TAG_OPTIONS_URL);
+    populateMultiSelect(newTypeTagsEl, tagOptions.type_tags);
+    populateMultiSelect(newAreaTagsEl, tagOptions.area_tags);
+    populateBucketSelect(newPrivateBucketTagEl, tagOptions.bucket_tags);
+    tagOptionsLoaded = !tagOptions.skipped;
+  } catch (error) {
+    warnings.push('Could not load tag options from Ghost. Tag pickers may be empty: ' + error.message);
+  }
+
+  if (warnings.length) setStatus(warnings.join(' '), 'warn');
+  else if (loadedFromSheet && tagOptionsLoaded) setStatus('Loaded mapping and tag options.', 'ok');
+  else if (loadedFromSheet) setStatus('Loaded mapping from Google Sheets.', 'ok');
   prefillFromQueryParams();
 }
 
@@ -182,6 +269,7 @@ saveButton.addEventListener('click', async () => {
   await storageSet({
     formUrl: formUrlEl.value.trim() || DEFAULT_FORM_URL,
     mappingFeedUrl: mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL,
+    tagOptionsUrl: tagOptionsUrlEl.value.trim() || DEFAULT_TAG_OPTIONS_URL,
     syncWebhookUrl: syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL,
     mapping
   });
@@ -189,7 +277,13 @@ saveButton.addEventListener('click', async () => {
 });
 
 resetButton.addEventListener('click', () => {
-  render(DEFAULT_MAPPING, formUrlEl.value.trim() || DEFAULT_FORM_URL, mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL, syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL);
+  render(
+    DEFAULT_MAPPING,
+    formUrlEl.value.trim() || DEFAULT_FORM_URL,
+    mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL,
+    tagOptionsUrlEl.value.trim() || DEFAULT_TAG_OPTIONS_URL,
+    syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL
+  );
   setStatus('Sample mapping restored. Click Save to keep it.', 'warn');
 });
 
@@ -208,6 +302,7 @@ addVenueButton.addEventListener('click', async () => {
   await storageSet({
     formUrl: formUrlEl.value.trim() || DEFAULT_FORM_URL,
     mappingFeedUrl: mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL,
+    tagOptionsUrl: tagOptionsUrlEl.value.trim() || DEFAULT_TAG_OPTIONS_URL,
     syncWebhookUrl: syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL,
     mapping
   });
