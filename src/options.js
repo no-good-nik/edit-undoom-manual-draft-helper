@@ -83,7 +83,16 @@ function currentVenueSyncMode() {
 }
 
 function mappingEntryKey(entry, index) {
-  return normalizeHandle(entry?.instagram_user_name || entry?.handle || entry?.username || '') || 'row-' + index;
+  return normalizeHandle(
+    entry?.instagram_user_name
+    || entry?.handle
+    || entry?.username
+    || entry?.label
+    || entry?.event_venue
+    || entry?.default_venue
+    || entry?.venue_name
+    || ''
+  ) || 'row-' + index;
 }
 
 function mappingArray(mapping) {
@@ -134,7 +143,7 @@ function updateVenueSyncMode() {
   newAreaTagsEl.closest('label').hidden = existingMode;
   newAreaTagsCustomEl.closest('label').hidden = existingMode;
   newPrivateBucketTagEl.closest('label').hidden = existingMode;
-  addVenueButton.textContent = existingMode ? 'Add Instagram to existing venue + sync sheet' : 'Add locally + sync sheet';
+  addVenueButton.textContent = existingMode ? 'Attach Instagram to existing venue + sync sheet' : 'Add locally + sync sheet';
 }
 
 function normalizeTagOption(tag) {
@@ -254,8 +263,10 @@ function upsertMappingEntry(mapping, entry) {
   if (entry.sync_mode === 'add_instagram_alias') {
     const targetVenue = String(entry.target_venue_name || entry.label || '').toLowerCase();
     const addAlias = (value) => {
+      const primary = normalizeHandle(value.instagram_user_name || value.handle || value.username || '');
+      if (!primary) return { ...value, instagram_user_name: key };
       const aliases = Array.isArray(value.aliases) ? value.aliases.map(normalizeHandle).filter(Boolean) : [];
-      if (!aliases.includes(key) && normalizeHandle(value.instagram_user_name || value.handle || value.username || '') !== key) aliases.push(key);
+      if (!aliases.includes(key) && primary !== key) aliases.push(key);
       return { ...value, aliases };
     };
     if (Array.isArray(mapping)) {

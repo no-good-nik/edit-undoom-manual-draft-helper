@@ -54,7 +54,7 @@ Firefox temporary add-ons disappear when Firefox restarts.
 
 The Options page loads its mapping from the production Google Sheet through n8n before rendering. It falls back to the saved browser mapping if the feed is unavailable. The **Add or sync Instagram account** form updates the extension mapping stored in the browser and posts the same row to the configured n8n webhook so the production `venues` sheet gets the `instagram_user_name` value too.
 
-Use **Add brand new venue/org** when the venue needs its own row. Use **Add Instagram to existing venue/org** when a second Instagram handle should point to an existing row; the sync workflow appends that handle to the row's `aliases` column.
+Use **Add brand new venue/org** when the venue needs its own row. Use **Attach Instagram to existing venue/org** when an Instagram handle should point to an existing row; the sync workflow fills blank `instagram_user_name` cells first, and only appends to `aliases` when the row already has a different primary handle.
 
 The Type tags and Area tags controls also load from the production Ghost site through n8n, so new venue defaults can be selected from existing public `type-` and `area-` tags instead of typed by hand. The form also includes New Type Tags and New Area Tags text fields for comma-separated labels that do not exist yet; those values are saved into the same default tag columns and can be created later by the manual draft workflow.
 
