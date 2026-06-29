@@ -109,6 +109,23 @@ function renderMatch(source, mapping) {
   sourceButton.disabled = false;
 }
 
+async function fetchSheetMapping(feedUrl) {
+  const url = String(feedUrl || '').trim();
+  if (!url) return { skipped: true, mapping: null };
+
+  const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+  const text = await response.text();
+  if (!response.ok) throw new Error('Sheet mapping fetch failed ' + response.status + ': ' + text.slice(0, 300));
+
+  let parsed;
+  try { parsed = text ? JSON.parse(text) : null; }
+  catch (error) { throw new Error('Sheet mapping response was not JSON: ' + error.message); }
+
+  const mapping = Array.isArray(parsed) ? parsed : parsed?.mapping;
+  if (!Array.isArray(mapping)) throw new Error('Sheet mapping response did not include a mapping array.');
+  return { skipped: false, mapping, count: parsed?.count ?? mapping.length };
+}
+
 async function init() {
   optionsButton.addEventListener('click', openOptionsForActiveSource);
   const tab = await queryActiveTab();
@@ -124,19 +141,33 @@ async function init() {
 
   const config = await storageGet({
     formUrl: DEFAULT_FORM_URL,
+    mappingFeedUrl: DEFAULT_MAPPING_FEED_URL,
     mapping: DEFAULT_MAPPING
   });
   activeFormUrl = config.formUrl || DEFAULT_FORM_URL;
-  const match = findMapping(config.mapping, source.handle);
+  let mapping = config.mapping || DEFAULT_MAPPING;
+  let mappingWarning = '';
+
+  try {
+    const feed = await fetchSheetMapping(config.mappingFeedUrl || DEFAULT_MAPPING_FEED_URL);
+    if (!feed.skipped && feed.mapping) {
+      mapping = feed.mapping;
+      await storageSet({ mapping });
+    }
+  } catch (error) {
+    mappingWarning = ' Could not refresh Google Sheets mapping: ' + error.message;
+  }
+
+  const match = findMapping(mapping, source.handle);
 
   if (!match) {
-    setStatus(`No mapping found for @${source.handle}. Add it in Options.`, 'warn');
+    setStatus(`No mapping found for @${source.handle}. Add it in Options.` + mappingWarning, 'warn');
     sourceButton.disabled = false;
     activeSource = source;
     return;
   }
 
-  setStatus('Ready to create a manual draft.', 'ok');
+  setStatus(mappingWarning ? 'Ready to create a manual draft.' + mappingWarning : 'Ready to create a manual draft.', mappingWarning ? 'warn' : 'ok');
   renderMatch(source, match.value);
 }
 
