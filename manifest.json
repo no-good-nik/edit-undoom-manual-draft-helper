@@ -19,13 +19,18 @@
   ],
   "action": {
     "default_title": "Create Edit Undoom draft",
-    "default_popup": "src/popup.html"
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "src/icons/edit-undoom-icon-400.png",
+      "48": "src/icons/edit-undoom-icon-400.png",
+      "128": "src/icons/edit-undoom-icon-400.png"
+    }
   },
   "options_page": "src/options.html",
   "icons": {
-    "16": "src/icons/icon.svg",
-    "48": "src/icons/icon.svg",
-    "128": "src/icons/icon.svg"
+    "16": "src/icons/edit-undoom-icon-400.png",
+    "48": "src/icons/edit-undoom-icon-400.png",
+    "128": "src/icons/edit-undoom-icon-400.png"
   },
   "browser_specific_settings": {
     "gecko": {
