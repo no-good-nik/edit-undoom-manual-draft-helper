@@ -11,6 +11,7 @@ const optionsButton = document.getElementById('optionsButton');
 let activeSource = null;
 let activeMapping = null;
 let activeFormUrl = DEFAULT_FORM_URL;
+let activeTagOptions = { type_tags: [], area_tags: [] };
 
 function setStatus(message, tone = '') {
   statusEl.textContent = message;
@@ -155,6 +156,25 @@ async function fetchSheetMapping(feedUrl) {
   return { skipped: false, mapping, count: parsed?.count ?? mapping.length };
 }
 
+async function fetchTagOptions(tagOptionsUrl) {
+  const url = String(tagOptionsUrl || '').trim();
+  if (!url) return { skipped: true, type_tags: [], area_tags: [] };
+
+  const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+  const text = await response.text();
+  if (!response.ok) throw new Error('Ghost tag options fetch failed ' + response.status + ': ' + text.slice(0, 300));
+
+  let parsed;
+  try { parsed = text ? JSON.parse(text) : null; }
+  catch (error) { throw new Error('Ghost tag options response was not JSON: ' + error.message); }
+
+  return {
+    skipped: false,
+    type_tags: Array.isArray(parsed?.type_tags) ? parsed.type_tags : [],
+    area_tags: Array.isArray(parsed?.area_tags) ? parsed.area_tags : [],
+  };
+}
+
 async function init() {
   optionsButton.addEventListener('click', openOptionsForActiveSource);
   const tab = await queryActiveTab();
@@ -171,6 +191,7 @@ async function init() {
   const config = await storageGet({
     formUrl: DEFAULT_FORM_URL,
     mappingFeedUrl: DEFAULT_MAPPING_FEED_URL,
+    tagOptionsUrl: DEFAULT_TAG_OPTIONS_URL,
     mapping: DEFAULT_MAPPING
   });
   activeFormUrl = config.formUrl || DEFAULT_FORM_URL;
@@ -185,6 +206,14 @@ async function init() {
     }
   } catch (error) {
     mappingWarning = ' Could not refresh Google Sheets mapping: ' + error.message;
+  }
+
+  try {
+    const tagOptions = await fetchTagOptions(config.tagOptionsUrl || DEFAULT_TAG_OPTIONS_URL);
+    activeTagOptions = tagOptions.skipped ? { type_tags: [], area_tags: [] } : tagOptions;
+  } catch (error) {
+    mappingWarning += ' Could not refresh Ghost tag options: ' + error.message;
+    activeTagOptions = { type_tags: [], area_tags: [] };
   }
 
   const match = findMapping(mapping, source.handle);
@@ -202,7 +231,7 @@ async function init() {
 
 draftButton.addEventListener('click', async () => {
   if (!activeSource || !activeMapping) return;
-  await createTab(manualDraftUrl(activeFormUrl, activeSource, activeMapping));
+  await createTab(manualDraftUrl(activeFormUrl, activeSource, activeMapping, activeTagOptions));
 });
 
 sourceButton.addEventListener('click', async () => {

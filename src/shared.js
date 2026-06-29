@@ -116,12 +116,88 @@ function findMapping(mapping, handle) {
   return null;
 }
 
-function queryParamsForDraft(source, mappingValue) {
+function splitTagList(value) {
+  return String(value || '')
+    .split(/[,;|\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function slugifyTagLabel(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeTagOptionForDraft(tag) {
+  const rawName = String(tag?.name || tag?.label || tag?.option || '').trim();
+  const match = rawName.match(/^(.*?)\s*\[([^\]]+)\]\s*$/);
+  const name = (match ? match[1] : rawName).trim();
+  const slug = String(tag?.slug || match?.[2] || '').trim();
+  if (!name || !slug) return null;
+  return {
+    name,
+    slug,
+    option: name + ' [' + slug + ']',
+  };
+}
+
+function tagOptionIndex(tags) {
+  const index = new Map();
+  for (const tag of (Array.isArray(tags) ? tags : []).map(normalizeTagOptionForDraft).filter(Boolean)) {
+    index.set(tag.name.toLowerCase(), tag);
+    index.set(tag.slug.toLowerCase(), tag);
+  }
+  return index;
+}
+
+function classifyDraftTags(value, tagOptions, prefix) {
+  const index = tagOptionIndex(tagOptions);
+  const existing = [];
+  const newlyCreated = [];
+  const seenExisting = new Set();
+  const seenNew = new Set();
+
+  for (const rawTag of splitTagList(value)) {
+    const match = rawTag.match(/^(.*?)\s*\[([^\]]+)\]\s*$/);
+    const label = (match ? match[1] : rawTag).trim();
+    const explicitSlug = (match?.[2] || '').trim();
+    const expectedSlug = explicitSlug || prefix + slugifyTagLabel(label);
+    const option = index.get(expectedSlug.toLowerCase()) || index.get(label.toLowerCase());
+
+    if (option) {
+      if (!seenExisting.has(option.slug)) {
+        existing.push(option.option);
+        seenExisting.add(option.slug);
+      }
+      continue;
+    }
+
+    const newKey = label.toLowerCase();
+    if (label && !seenNew.has(newKey)) {
+      newlyCreated.push(label);
+      seenNew.add(newKey);
+    }
+  }
+
+  return { existing, newlyCreated };
+}
+
+function queryParamsForDraft(source, mappingValue, tagOptions = {}) {
   const params = new URLSearchParams();
+  const typeTags = classifyDraftTags(mappingValue.new_type_tags || mappingValue.default_type_tags || '', tagOptions.type_tags, 'type-');
+  const areaTags = classifyDraftTags(mappingValue.new_area_tags || mappingValue.default_area_tags || '', tagOptions.area_tags, 'area-');
+
   params.set('source_url', source.source_url || '');
   params.set('event_venue', mappingValue.event_venue || mappingValue.default_venue || mappingValue.label || '');
-  params.set('new_type_tags', mappingValue.new_type_tags || mappingValue.default_type_tags || '');
-  params.set('new_area_tags', mappingValue.new_area_tags || mappingValue.default_area_tags || '');
+  params.set('manual_type_tags', typeTags.existing.join(', '));
+  params.set('manual_area_tags', areaTags.existing.join(', '));
+  params.set('new_type_tags', typeTags.newlyCreated.join(', '));
+  params.set('new_area_tags', areaTags.newlyCreated.join(', '));
   params.set('private_bucket_tag', mappingValue.private_bucket_tag || mappingValue.default_bucket_tag || '#Stuff to Do [hash-stuff-to-do]');
   if (mappingValue.parser_type) params.set('parser_type', mappingValue.parser_type);
 
@@ -134,8 +210,8 @@ function queryParamsForDraft(source, mappingValue) {
   return params;
 }
 
-function manualDraftUrl(formUrl, source, mappingValue) {
+function manualDraftUrl(formUrl, source, mappingValue, tagOptions = {}) {
   const base = String(formUrl || DEFAULT_FORM_URL).trim() || DEFAULT_FORM_URL;
   const separator = base.includes('?') ? '&' : '?';
-  return base + separator + queryParamsForDraft(source, mappingValue).toString();
+  return base + separator + queryParamsForDraft(source, mappingValue, tagOptions).toString();
 }
