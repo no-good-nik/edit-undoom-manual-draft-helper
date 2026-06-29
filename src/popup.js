@@ -84,6 +84,18 @@ async function sourceFromActiveTab(tab) {
   return sourceFromInstagramHandle(handle, tab.url);
 }
 
+function openOptionsForActiveSource() {
+  if (activeSource?.source_type !== 'instagram' || !activeSource.handle) {
+    openOptionsPage();
+    return;
+  }
+
+  const params = new URLSearchParams();
+  params.set('instagram_user_name', activeSource.handle);
+  if (activeSource.source_url) params.set('source_url', activeSource.source_url);
+  openOptionsPage(params.toString());
+}
+
 function renderMatch(source, mapping) {
   activeSource = source;
   activeMapping = mapping;
@@ -98,7 +110,7 @@ function renderMatch(source, mapping) {
 }
 
 async function init() {
-  optionsButton.addEventListener('click', openOptionsPage);
+  optionsButton.addEventListener('click', openOptionsForActiveSource);
   const tab = await queryActiveTab();
   const source = await sourceFromActiveTab(tab);
 

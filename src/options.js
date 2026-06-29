@@ -90,6 +90,17 @@ async function syncVenueToSheet(entry, webhookUrl) {
   return { skipped: false, text };
 }
 
+function prefillFromQueryParams() {
+  const params = new URLSearchParams(location.search || '');
+  const handle = normalizeHandle(params.get('instagram_user_name') || params.get('instagram_username') || params.get('handle') || '');
+  if (!handle) return;
+
+  newInstagramUserNameEl.value = handle;
+  const sourceUrl = params.get('source_url') || instagramProfileUrl(handle);
+  if (sourceUrl && !newSourceUrlEl.value.trim()) newSourceUrlEl.value = sourceUrl;
+  setStatus('Prefilled @' + handle + ' from the active Instagram page.', 'ok');
+}
+
 function clearAddVenueForm() {
   newInstagramUserNameEl.value = '';
   newVenueNameEl.value = '';
@@ -107,6 +118,7 @@ async function loadOptions() {
     mapping: DEFAULT_MAPPING
   });
   render(config.mapping, config.formUrl, config.syncWebhookUrl);
+  prefillFromQueryParams();
 }
 
 saveButton.addEventListener('click', async () => {

@@ -26,12 +26,13 @@ function createTab(url) {
   });
 }
 
-function openOptionsPage() {
-  if (browserApi.runtime.openOptionsPage) {
+function openOptionsPage(query = '') {
+  const optionsUrl = browserApi.runtime.getURL('src/options.html') + (query ? '?' + query : '');
+  if (!query && browserApi.runtime.openOptionsPage) {
     browserApi.runtime.openOptionsPage();
     return;
   }
-  createTab(browserApi.runtime.getURL('src/options.html'));
+  createTab(optionsUrl);
 }
 
 function executeActiveTabFunction(tabId, func) {
