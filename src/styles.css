@@ -13,6 +13,10 @@ main {
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .popup main {
   width: 340px;
   padding: 14px;
