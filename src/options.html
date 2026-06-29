@@ -32,10 +32,24 @@
 
       <section class="panel">
         <h2>Add or sync Instagram account</h2>
+        <div class="mode-row">
+          <label class="inline-choice">
+            <input name="venueSyncMode" type="radio" value="new" checked>
+            Add brand new venue/org
+          </label>
+          <label class="inline-choice">
+            <input name="venueSyncMode" type="radio" value="existing">
+            Add Instagram to existing venue/org
+          </label>
+        </div>
         <div class="form-grid">
           <label>
             Instagram username
             <input id="newInstagramUserName" type="text" placeholder="examplewpg">
+          </label>
+          <label id="existingVenueLabel" hidden>
+            Existing venue/org
+            <select id="existingVenueKey"></select>
           </label>
           <label>
             Venue/org display name

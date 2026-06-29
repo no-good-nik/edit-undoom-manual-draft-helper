@@ -7,7 +7,10 @@ const statusEl = document.getElementById('status');
 const saveButton = document.getElementById('saveButton');
 const resetButton = document.getElementById('resetButton');
 const addVenueButton = document.getElementById('addVenueButton');
+const venueSyncModeEls = Array.from(document.querySelectorAll('input[name="venueSyncMode"]'));
 const newInstagramUserNameEl = document.getElementById('newInstagramUserName');
+const existingVenueLabelEl = document.getElementById('existingVenueLabel');
+const existingVenueKeyEl = document.getElementById('existingVenueKey');
 const newVenueNameEl = document.getElementById('newVenueName');
 const newParserTypeEl = document.getElementById('newParserType');
 const newSourceUrlEl = document.getElementById('newSourceUrl');
@@ -16,6 +19,7 @@ const newTypeTagsCustomEl = document.getElementById('newTypeTagsCustom');
 const newAreaTagsEl = document.getElementById('newAreaTags');
 const newAreaTagsCustomEl = document.getElementById('newAreaTagsCustom');
 const newPrivateBucketTagEl = document.getElementById('newPrivateBucketTag');
+let currentMapping = DEFAULT_MAPPING;
 
 function setStatus(message, tone = '') {
   statusEl.textContent = message;
@@ -23,11 +27,14 @@ function setStatus(message, tone = '') {
 }
 
 function render(mapping, formUrl, mappingFeedUrl, tagOptionsUrl, syncWebhookUrl) {
+  currentMapping = mapping || DEFAULT_MAPPING;
   formUrlEl.value = formUrl || DEFAULT_FORM_URL;
   mappingFeedUrlEl.value = mappingFeedUrl || DEFAULT_MAPPING_FEED_URL;
   tagOptionsUrlEl.value = tagOptionsUrl || DEFAULT_TAG_OPTIONS_URL;
   syncWebhookUrlEl.value = syncWebhookUrl || DEFAULT_SYNC_WEBHOOK_URL;
   mappingEl.value = JSON.stringify(mapping || DEFAULT_MAPPING, null, 2);
+  populateExistingVenueSelect(currentMapping);
+  updateVenueSyncMode();
 }
 
 function instagramProfileUrl(handle) {
@@ -69,6 +76,65 @@ function joinUniqueValues(...values) {
     }
   }
   return joined.join(', ');
+}
+
+function currentVenueSyncMode() {
+  return venueSyncModeEls.find((input) => input.checked)?.value || 'new';
+}
+
+function mappingEntryKey(entry, index) {
+  return normalizeHandle(entry?.instagram_user_name || entry?.handle || entry?.username || '') || 'row-' + index;
+}
+
+function mappingArray(mapping) {
+  if (Array.isArray(mapping)) return mapping;
+  return Object.entries(mapping || {}).map(([key, value]) => ({
+    instagram_user_name: key,
+    ...(value || {})
+  }));
+}
+
+function existingVenueOptions(mapping) {
+  return mappingArray(mapping)
+    .map((entry, index) => ({
+      key: mappingEntryKey(entry, index),
+      label: entry.label || entry.event_venue || entry.default_venue || entry.venue_name || entry.instagram_user_name || entry.handle || '',
+      entry
+    }))
+    .filter((option) => option.label)
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function populateExistingVenueSelect(mapping) {
+  const current = existingVenueKeyEl.value;
+  existingVenueKeyEl.textContent = '';
+  for (const option of existingVenueOptions(mapping)) {
+    const optionEl = document.createElement('option');
+    optionEl.value = option.key;
+    optionEl.textContent = option.label;
+    existingVenueKeyEl.append(optionEl);
+  }
+  if (current && Array.from(existingVenueKeyEl.options).some((option) => option.value === current)) {
+    existingVenueKeyEl.value = current;
+  }
+}
+
+function selectedExistingVenue() {
+  const key = existingVenueKeyEl.value;
+  return existingVenueOptions(currentMapping).find((option) => option.key === key) || null;
+}
+
+function updateVenueSyncMode() {
+  const existingMode = currentVenueSyncMode() === 'existing';
+  existingVenueLabelEl.hidden = !existingMode;
+  newVenueNameEl.closest('label').hidden = existingMode;
+  newParserTypeEl.closest('label').hidden = existingMode;
+  newTypeTagsEl.closest('label').hidden = existingMode;
+  newTypeTagsCustomEl.closest('label').hidden = existingMode;
+  newAreaTagsEl.closest('label').hidden = existingMode;
+  newAreaTagsCustomEl.closest('label').hidden = existingMode;
+  newPrivateBucketTagEl.closest('label').hidden = existingMode;
+  addVenueButton.textContent = existingMode ? 'Add Instagram to existing venue + sync sheet' : 'Add locally + sync sheet';
 }
 
 function normalizeTagOption(tag) {
@@ -135,8 +201,33 @@ async function fetchTagOptions(tagOptionsUrl) {
 
 function venuePayloadFromForm() {
   const handle = normalizeHandle(newInstagramUserNameEl.value);
-  const venueName = newVenueNameEl.value.trim();
   if (!handle) throw new Error('Instagram username is required.');
+
+  if (currentVenueSyncMode() === 'existing') {
+    const existingVenue = selectedExistingVenue();
+    if (!existingVenue) throw new Error('Choose an existing venue/org.');
+    const entry = existingVenue.entry || {};
+    const venueName = existingVenue.label;
+    return {
+      sync_mode: 'add_instagram_alias',
+      instagram_user_name: handle,
+      aliases: [handle],
+      target_venue_name: venueName,
+      label: venueName,
+      parser_type: entry.parser_type || '',
+      source_url: newSourceUrlEl.value.trim() || instagramProfileUrl(handle),
+      event_venue: entry.event_venue || entry.default_venue || venueName,
+      new_type_tags: entry.new_type_tags || entry.default_type_tags || '',
+      new_area_tags: entry.new_area_tags || entry.default_area_tags || '',
+      private_bucket_tag: entry.private_bucket_tag || entry.default_bucket_tag || '#Stuff to Do [hash-stuff-to-do]',
+      default_type_tags: entry.default_type_tags || entry.new_type_tags || '',
+      default_area_tags: entry.default_area_tags || entry.new_area_tags || '',
+      default_bucket_tag: entry.default_bucket_tag || entry.private_bucket_tag || '#Stuff to Do [hash-stuff-to-do]',
+      extra_params: entry.extra_params || {}
+    };
+  }
+
+  const venueName = newVenueNameEl.value.trim();
   if (!venueName) throw new Error('Venue/org display name is required.');
   const typeTags = joinUniqueValues(selectedMultiSelectValues(newTypeTagsEl), newTypeTagsCustomEl.value);
   const areaTags = joinUniqueValues(selectedMultiSelectValues(newAreaTagsEl), newAreaTagsCustomEl.value);
@@ -160,6 +251,25 @@ function venuePayloadFromForm() {
 
 function upsertMappingEntry(mapping, entry) {
   const key = normalizeHandle(entry.instagram_user_name);
+  if (entry.sync_mode === 'add_instagram_alias') {
+    const targetVenue = String(entry.target_venue_name || entry.label || '').toLowerCase();
+    const addAlias = (value) => {
+      const aliases = Array.isArray(value.aliases) ? value.aliases.map(normalizeHandle).filter(Boolean) : [];
+      if (!aliases.includes(key) && normalizeHandle(value.instagram_user_name || value.handle || value.username || '') !== key) aliases.push(key);
+      return { ...value, aliases };
+    };
+    if (Array.isArray(mapping)) {
+      return mapping.map((value) => {
+        const label = String(value?.label || value?.event_venue || value?.default_venue || value?.venue_name || '').toLowerCase();
+        return label === targetVenue ? addAlias(value || {}) : value;
+      });
+    }
+    return Object.fromEntries(Object.entries(mapping || {}).map(([mapKey, value]) => {
+      const label = String(value?.label || value?.event_venue || value?.default_venue || value?.venue_name || '').toLowerCase();
+      return [mapKey, label === targetVenue ? addAlias(value || {}) : value];
+    }));
+  }
+
   if (Array.isArray(mapping)) {
     const next = mapping.slice();
     const index = next.findIndex((item) => normalizeHandle(item?.instagram_user_name || item?.handle || item?.username || '') === key);
@@ -351,5 +461,9 @@ addVenueButton.addEventListener('click', async () => {
 newInstagramUserNameEl.addEventListener('input', () => {
   if (!newSourceUrlEl.value.trim()) newSourceUrlEl.placeholder = instagramProfileUrl(newInstagramUserNameEl.value) || 'https://www.instagram.com/examplewpg/';
 });
+
+for (const input of venueSyncModeEls) {
+  input.addEventListener('change', updateVenueSyncMode);
+}
 
 loadOptions();
