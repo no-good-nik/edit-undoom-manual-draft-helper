@@ -22,6 +22,23 @@ function sourceFromInstagramHandle(handle, sourceUrl) {
   return { ok: true, source_type: 'instagram', handle: normalized, source_url: sourceUrl || '' };
 }
 
+function instagramHandleFromTitle(title) {
+  const text = String(title || '').trim();
+  const patterns = [
+    /@([a-z0-9._]+)/i,
+    /(?:photo|video|post|reel)\s+by\s+([a-z0-9._]+)/i,
+    /^([a-z0-9._]+)\s+on\s+Instagram\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const handle = instagramHandleFromPathPart(match?.[1] || '');
+    if (handle) return handle;
+  }
+
+  return '';
+}
+
 function sourceNeedsInstagramPageLookup(urlText) {
   try {
     const url = new URL(urlText);

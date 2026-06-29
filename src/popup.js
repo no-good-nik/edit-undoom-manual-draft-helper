@@ -35,10 +35,27 @@ function extractInstagramHandleFromDocument() {
     }
   };
 
-  const articleHeaderHandle = Array.from(document.querySelectorAll('article header a[href], article a[href], main a[href]'))
-    .map((link) => handleFromHref(link.getAttribute('href')))
-    .find(Boolean);
-  if (articleHeaderHandle) return articleHeaderHandle;
+  const authorSelectors = [
+    'article header a[href]',
+    'article a[href]',
+    'main a[href]',
+    'header a[href]',
+    'a[role="link"][href]',
+    'a[href^="/"]'
+  ];
+  const linkedHandles = Array.from(document.querySelectorAll(authorSelectors.join(',')))
+    .map((link) => ({
+      handle: handleFromHref(link.getAttribute('href')),
+      text: clean(link.textContent),
+      aria: clean(link.getAttribute('aria-label'))
+    }))
+    .filter((entry) => entry.handle);
+
+  const exactTextHandle = linkedHandles
+    .find((entry) => entry.text === entry.handle || entry.aria === entry.handle)?.handle;
+  if (exactTextHandle) return exactTextHandle;
+
+  if (linkedHandles[0]?.handle) return linkedHandles[0].handle;
 
   const metaUrlHandle = Array.from(document.querySelectorAll('meta[property="og:url"], link[rel="canonical"]'))
     .map((node) => handleFromHref(node.getAttribute('content') || node.getAttribute('href')))
@@ -55,6 +72,9 @@ function extractInstagramHandleFromDocument() {
 async function sourceFromActiveTab(tab) {
   const source = sourceFromUrl(tab?.url || '');
   if (source.ok || !sourceNeedsInstagramPageLookup(tab?.url || '')) return source;
+
+  const titleHandle = instagramHandleFromTitle(tab?.title || '');
+  if (titleHandle) return sourceFromInstagramHandle(titleHandle, tab.url);
 
   const handle = await executeActiveTabFunction(tab.id, extractInstagramHandleFromDocument);
   if (!handle) {
