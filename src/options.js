@@ -12,7 +12,9 @@ const newVenueNameEl = document.getElementById('newVenueName');
 const newParserTypeEl = document.getElementById('newParserType');
 const newSourceUrlEl = document.getElementById('newSourceUrl');
 const newTypeTagsEl = document.getElementById('newTypeTags');
+const newTypeTagsCustomEl = document.getElementById('newTypeTagsCustom');
 const newAreaTagsEl = document.getElementById('newAreaTags');
+const newAreaTagsCustomEl = document.getElementById('newAreaTagsCustom');
 const newPrivateBucketTagEl = document.getElementById('newPrivateBucketTag');
 
 function setStatus(message, tone = '') {
@@ -46,6 +48,27 @@ function selectedMultiSelectValues(selectEl) {
     .map((option) => option.value.trim())
     .filter(Boolean)
     .join(', ');
+}
+
+function splitList(value) {
+  return String(value || '')
+    .split(/[,;|\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function joinUniqueValues(...values) {
+  const seen = new Set();
+  const joined = [];
+  for (const value of values) {
+    for (const part of splitList(value)) {
+      const key = part.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      joined.push(part);
+    }
+  }
+  return joined.join(', ');
 }
 
 function normalizeTagOption(tag) {
@@ -115,6 +138,8 @@ function venuePayloadFromForm() {
   const venueName = newVenueNameEl.value.trim();
   if (!handle) throw new Error('Instagram username is required.');
   if (!venueName) throw new Error('Venue/org display name is required.');
+  const typeTags = joinUniqueValues(selectedMultiSelectValues(newTypeTagsEl), newTypeTagsCustomEl.value);
+  const areaTags = joinUniqueValues(selectedMultiSelectValues(newAreaTagsEl), newAreaTagsCustomEl.value);
 
   return {
     instagram_user_name: handle,
@@ -123,11 +148,11 @@ function venuePayloadFromForm() {
     parser_type: newParserTypeEl.value.trim() || 'instagram_manual_review',
     source_url: newSourceUrlEl.value.trim() || instagramProfileUrl(handle),
     event_venue: venueName,
-    new_type_tags: selectedMultiSelectValues(newTypeTagsEl),
-    new_area_tags: selectedMultiSelectValues(newAreaTagsEl),
+    new_type_tags: typeTags,
+    new_area_tags: areaTags,
     private_bucket_tag: newPrivateBucketTagEl.value || '#Stuff to Do [hash-stuff-to-do]',
-    default_type_tags: selectedMultiSelectValues(newTypeTagsEl),
-    default_area_tags: selectedMultiSelectValues(newAreaTagsEl),
+    default_type_tags: typeTags,
+    default_area_tags: areaTags,
     default_bucket_tag: newPrivateBucketTagEl.value || '#Stuff to Do [hash-stuff-to-do]',
     extra_params: {}
   };
@@ -212,6 +237,8 @@ function clearAddVenueForm() {
   newSourceUrlEl.value = '';
   for (const option of newTypeTagsEl.options) option.selected = false;
   for (const option of newAreaTagsEl.options) option.selected = false;
+  newTypeTagsCustomEl.value = '';
+  newAreaTagsCustomEl.value = '';
   newPrivateBucketTagEl.value = '#Stuff to Do [hash-stuff-to-do]';
 }
 
