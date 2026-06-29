@@ -34,26 +34,55 @@ function extractInstagramHandleFromDocument() {
       return '';
     }
   };
+  const isVisible = (element) => {
+    if (!element || !element.isConnected) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle(element);
+    return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || 1) > 0;
+  };
+  const visibleDialogs = Array.from(document.querySelectorAll('[role="dialog"], div[aria-modal="true"]'))
+    .filter(isVisible);
+  const scopedRoots = [
+    ...visibleDialogs,
+    ...visibleDialogs.flatMap((dialog) => Array.from(dialog.querySelectorAll('article')).filter(isVisible)),
+    ...Array.from(document.querySelectorAll('main article')).filter(isVisible),
+    document
+  ];
 
   const authorSelectors = [
     'article header a[href]',
-    'article a[href]',
-    'main a[href]',
     'header a[href]',
     'a[role="link"][href]',
-    'a[href^="/"]'
+    'article a[href]'
   ];
-  const linkedHandles = Array.from(document.querySelectorAll(authorSelectors.join(',')))
-    .map((link) => ({
-      handle: handleFromHref(link.getAttribute('href')),
-      text: clean(link.textContent),
-      aria: clean(link.getAttribute('aria-label'))
-    }))
-    .filter((entry) => entry.handle);
 
-  const exactTextHandle = linkedHandles
-    .find((entry) => entry.text === entry.handle || entry.aria === entry.handle)?.handle;
-  if (exactTextHandle) return exactTextHandle;
+  const candidates = [];
+  scopedRoots.forEach((root, rootIndex) => {
+    Array.from(root.querySelectorAll(authorSelectors.join(','))).forEach((link, linkIndex) => {
+      if (!isVisible(link)) return;
+      const handle = handleFromHref(link.getAttribute('href'));
+      if (!handle) return;
+      const text = clean(link.textContent);
+      const aria = clean(link.getAttribute('aria-label'));
+      const inDialog = visibleDialogs.some((dialog) => dialog.contains(link));
+      const inArticleHeader = Boolean(link.closest('article header'));
+      const exactText = text === handle || aria === handle;
+      candidates.push({
+        handle,
+        score:
+          (inDialog ? 1000 : 0)
+          + (inArticleHeader ? 200 : 0)
+          + (exactText ? 100 : 0)
+          - rootIndex
+          - (linkIndex / 1000)
+      });
+    });
+  });
+
+  const linkedHandles = candidates
+    .sort((a, b) => b.score - a.score)
+    .filter((entry) => entry.handle);
 
   if (linkedHandles[0]?.handle) return linkedHandles[0].handle;
 
