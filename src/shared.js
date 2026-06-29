@@ -191,10 +191,12 @@ function queryParamsForDraft(source, mappingValue, tagOptions = {}) {
   const params = new URLSearchParams();
   const typeTags = classifyDraftTags(mappingValue.new_type_tags || mappingValue.default_type_tags || '', tagOptions.type_tags, 'type-');
   const areaTags = classifyDraftTags(mappingValue.new_area_tags || mappingValue.default_area_tags || '', tagOptions.area_tags, 'area-');
+  const venueOverride = mappingValue.event_venue || mappingValue.default_venue || mappingValue.label || '';
 
   params.set('source_url', source.source_url || '');
   params.set('image_url', source.image_url || mappingValue.image_url || mappingValue.default_image_url || '');
-  params.set('event_venue', mappingValue.event_venue || mappingValue.default_venue || mappingValue.label || '');
+  params.set('venue_name', venueOverride ? 'Other / manual entry' : '');
+  params.set('event_venue', venueOverride);
   params.set('manual_type_tags', typeTags.existing.join(', '));
   params.set('manual_area_tags', areaTags.existing.join(', '));
   params.set('new_type_tags', typeTags.newlyCreated.join(', '));
