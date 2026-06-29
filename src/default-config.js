@@ -1,4 +1,5 @@
 const DEFAULT_FORM_URL = 'https://n8n.editundoom.ca/form/manual-event-draft';
+const DEFAULT_SYNC_WEBHOOK_URL = 'https://n8n.editundoom.ca/webhook/extension-venue-instagram-sync-production';
 
 const DEFAULT_MAPPING = {
   osbornetaphouse: {

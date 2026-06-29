@@ -50,6 +50,18 @@ Firefox Android supports some extensions, but side-loading custom extensions is 
 
 Firefox temporary add-ons disappear when Firefox restarts.
 
+## Add Or Sync Instagram Accounts
+
+The Options page includes an **Add or sync Instagram account** form. Submitting it updates the extension mapping stored in the browser and posts the same row to the configured n8n webhook so the production `venues` sheet gets the `instagram_user_name` value too.
+
+Default sync webhook:
+
+```text
+https://n8n.editundoom.ca/webhook/extension-venue-instagram-sync-production
+```
+
+For existing venues, the n8n workflow updates only `instagram_user_name` so structured parser URLs are not replaced by Instagram URLs. Brand-new venues are appended with `parser_type=instagram_manual_review` unless you enter another parser type.
+
 ## Mapping
 
 Open the extension Options page to edit the mapping JSON. The easiest format is an array copied from `config/venues-template.json`; fill in `instagram_user_name` for each venue/org you want the extension to recognize. Use `aliases` for alternate spellings.

@@ -16,6 +16,50 @@
       </label>
 
       <label>
+        Sheet sync webhook URL
+        <input id="syncWebhookUrl" type="url" placeholder="https://n8n.editundoom.ca/webhook/extension-venue-instagram-sync-production">
+      </label>
+
+      <section class="panel">
+        <h2>Add or sync Instagram account</h2>
+        <div class="form-grid">
+          <label>
+            Instagram username
+            <input id="newInstagramUserName" type="text" placeholder="examplewpg">
+          </label>
+          <label>
+            Venue/org display name
+            <input id="newVenueName" type="text" placeholder="Example Venue">
+          </label>
+          <label>
+            Parser type
+            <input id="newParserType" type="text" placeholder="instagram_manual_review">
+          </label>
+          <label>
+            Source URL
+            <input id="newSourceUrl" type="url" placeholder="https://www.instagram.com/examplewpg/">
+          </label>
+          <label>
+            Type tags
+            <input id="newTypeTags" type="text" placeholder="Music, Queer Events">
+          </label>
+          <label>
+            Area tags
+            <input id="newAreaTags" type="text" placeholder="Downtown">
+          </label>
+          <label>
+            Private bucket tag
+            <select id="newPrivateBucketTag">
+              <option value="#Stuff to Do [hash-stuff-to-do]">#Stuff to Do</option>
+              <option value="#Stuff to Learn [hash-stuff-to-learn]">#Stuff to Learn</option>
+              <option value="#Community Building [hash-community-building]">#Community Building</option>
+            </select>
+          </label>
+        </div>
+        <button id="addVenueButton" type="button">Add locally + sync sheet</button>
+      </section>
+
+      <label>
         Source mapping JSON <span class="hint">Object keyed by handle, or array with instagram_user_name fields</span>
         <textarea id="mapping" spellcheck="false"></textarea>
       </label>
@@ -48,6 +92,7 @@
 
     <script src="browser-api.js"></script>
     <script src="default-config.js"></script>
+    <script src="shared.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

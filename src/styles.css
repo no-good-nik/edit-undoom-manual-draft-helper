@@ -142,3 +142,27 @@ pre {
   font-size: 12px;
   font-weight: 500;
 }
+
+.panel {
+  border: 1px solid #d7d7d0;
+  border-radius: 8px;
+  margin: 0 0 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #c7c7bf;
+  border-radius: 6px;
+  padding: 10px;
+  font: inherit;
+  background: #fff;
+}

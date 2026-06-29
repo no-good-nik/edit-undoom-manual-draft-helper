@@ -14,7 +14,8 @@
     "https://instagram.com/*",
     "https://www.facebook.com/*",
     "https://facebook.com/*",
-    "https://www.bandsintown.com/*"
+    "https://www.bandsintown.com/*",
+    "https://n8n.editundoom.ca/*"
   ],
   "action": {
     "default_title": "Create Edit Undoom draft",
