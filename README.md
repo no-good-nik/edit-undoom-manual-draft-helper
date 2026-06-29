@@ -52,7 +52,13 @@ Firefox temporary add-ons disappear when Firefox restarts.
 
 ## Add Or Sync Instagram Accounts
 
-The Options page includes an **Add or sync Instagram account** form. Submitting it updates the extension mapping stored in the browser and posts the same row to the configured n8n webhook so the production `venues` sheet gets the `instagram_user_name` value too.
+The Options page loads its mapping from the production Google Sheet through n8n before rendering. It falls back to the saved browser mapping if the feed is unavailable. The **Add or sync Instagram account** form updates the extension mapping stored in the browser and posts the same row to the configured n8n webhook so the production `venues` sheet gets the `instagram_user_name` value too.
+
+Default mapping feed:
+
+```text
+https://n8n.editundoom.ca/webhook/extension-venue-mapping-production
+```
 
 Default sync webhook:
 

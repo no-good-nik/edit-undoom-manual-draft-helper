@@ -1,4 +1,5 @@
 const formUrlEl = document.getElementById('formUrl');
+const mappingFeedUrlEl = document.getElementById('mappingFeedUrl');
 const syncWebhookUrlEl = document.getElementById('syncWebhookUrl');
 const mappingEl = document.getElementById('mapping');
 const statusEl = document.getElementById('status');
@@ -18,8 +19,9 @@ function setStatus(message, tone = '') {
   statusEl.className = 'status ' + tone;
 }
 
-function render(mapping, formUrl, syncWebhookUrl) {
+function render(mapping, formUrl, mappingFeedUrl, syncWebhookUrl) {
   formUrlEl.value = formUrl || DEFAULT_FORM_URL;
+  mappingFeedUrlEl.value = mappingFeedUrl || DEFAULT_MAPPING_FEED_URL;
   syncWebhookUrlEl.value = syncWebhookUrl || DEFAULT_SYNC_WEBHOOK_URL;
   mappingEl.value = JSON.stringify(mapping || DEFAULT_MAPPING, null, 2);
 }
@@ -53,6 +55,9 @@ function venuePayloadFromForm() {
     new_type_tags: newTypeTagsEl.value.trim(),
     new_area_tags: newAreaTagsEl.value.trim(),
     private_bucket_tag: newPrivateBucketTagEl.value || '#Stuff to Do [hash-stuff-to-do]',
+    default_type_tags: newTypeTagsEl.value.trim(),
+    default_area_tags: newAreaTagsEl.value.trim(),
+    default_bucket_tag: newPrivateBucketTagEl.value || '#Stuff to Do [hash-stuff-to-do]',
     extra_params: {}
   };
 }
@@ -74,6 +79,23 @@ function upsertMappingEntry(mapping, entry) {
       ...entry
     }
   };
+}
+
+async function fetchSheetMapping(feedUrl) {
+  const url = String(feedUrl || '').trim();
+  if (!url) return { skipped: true, mapping: null };
+
+  const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+  const text = await response.text();
+  if (!response.ok) throw new Error('Sheet mapping fetch failed ' + response.status + ': ' + text.slice(0, 300));
+
+  let parsed;
+  try { parsed = text ? JSON.parse(text) : null; }
+  catch (error) { throw new Error('Sheet mapping response was not JSON: ' + error.message); }
+
+  const mapping = Array.isArray(parsed) ? parsed : parsed?.mapping;
+  if (!Array.isArray(mapping)) throw new Error('Sheet mapping response did not include a mapping array.');
+  return { skipped: false, mapping, count: parsed?.count ?? mapping.length };
 }
 
 async function syncVenueToSheet(entry, webhookUrl) {
@@ -125,10 +147,26 @@ function clearAddVenueForm() {
 async function loadOptions() {
   const config = await storageGet({
     formUrl: DEFAULT_FORM_URL,
+    mappingFeedUrl: DEFAULT_MAPPING_FEED_URL,
     syncWebhookUrl: DEFAULT_SYNC_WEBHOOK_URL,
     mapping: DEFAULT_MAPPING
   });
-  render(config.mapping, config.formUrl, config.syncWebhookUrl);
+
+  let mapping = config.mapping || DEFAULT_MAPPING;
+  let loadedFromSheet = false;
+  try {
+    const feed = await fetchSheetMapping(config.mappingFeedUrl || DEFAULT_MAPPING_FEED_URL);
+    if (!feed.skipped && feed.mapping) {
+      mapping = feed.mapping;
+      loadedFromSheet = true;
+      await storageSet({ mapping });
+    }
+  } catch (error) {
+    setStatus('Could not load mapping from Google Sheets. Using saved local mapping: ' + error.message, 'warn');
+  }
+
+  render(mapping, config.formUrl, config.mappingFeedUrl, config.syncWebhookUrl);
+  if (loadedFromSheet) setStatus('Loaded mapping from Google Sheets.', 'ok');
   prefillFromQueryParams();
 }
 
@@ -143,6 +181,7 @@ saveButton.addEventListener('click', async () => {
 
   await storageSet({
     formUrl: formUrlEl.value.trim() || DEFAULT_FORM_URL,
+    mappingFeedUrl: mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL,
     syncWebhookUrl: syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL,
     mapping
   });
@@ -150,7 +189,7 @@ saveButton.addEventListener('click', async () => {
 });
 
 resetButton.addEventListener('click', () => {
-  render(DEFAULT_MAPPING, formUrlEl.value.trim() || DEFAULT_FORM_URL, syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL);
+  render(DEFAULT_MAPPING, formUrlEl.value.trim() || DEFAULT_FORM_URL, mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL, syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL);
   setStatus('Sample mapping restored. Click Save to keep it.', 'warn');
 });
 
@@ -168,6 +207,7 @@ addVenueButton.addEventListener('click', async () => {
   mappingEl.value = JSON.stringify(mapping, null, 2);
   await storageSet({
     formUrl: formUrlEl.value.trim() || DEFAULT_FORM_URL,
+    mappingFeedUrl: mappingFeedUrlEl.value.trim() || DEFAULT_MAPPING_FEED_URL,
     syncWebhookUrl: syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL,
     mapping
   });
