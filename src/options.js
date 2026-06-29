@@ -79,15 +79,26 @@ function upsertMappingEntry(mapping, entry) {
 async function syncVenueToSheet(entry, webhookUrl) {
   const url = String(webhookUrl || '').trim();
   if (!url) return { skipped: true };
+  const body = JSON.stringify(entry);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(entry)
-  });
-  const text = await response.text();
-  if (!response.ok) throw new Error('Sheet sync failed ' + response.status + ': ' + text.slice(0, 300));
-  return { skipped: false, text };
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error('Sheet sync failed ' + response.status + ': ' + text.slice(0, 300));
+    return { skipped: false, verified: true, text };
+  } catch (error) {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body
+    });
+    return { skipped: false, verified: false, warning: error.message };
+  }
 }
 
 function prefillFromQueryParams() {
@@ -164,7 +175,12 @@ addVenueButton.addEventListener('click', async () => {
   try {
     const result = await syncVenueToSheet(entry, syncWebhookUrlEl.value.trim() || DEFAULT_SYNC_WEBHOOK_URL);
     clearAddVenueForm();
-    setStatus(result.skipped ? 'Added locally. Sheet sync URL is blank, so Google Sheets was not updated.' : 'Added locally and synced to Google Sheets.', result.skipped ? 'warn' : 'ok');
+    setStatus(result.skipped
+      ? 'Added locally. Sheet sync URL is blank, so Google Sheets was not updated.'
+      : result.verified
+        ? 'Added locally and synced to Google Sheets.'
+        : 'Added locally and sent to the Google Sheets webhook. Browser CORS blocked confirmation, so check the sheet if you need to verify it landed.',
+      result.skipped || !result.verified ? 'warn' : 'ok');
   } catch (error) {
     setStatus('Added locally, but Google Sheets did not sync: ' + error.message, 'warn');
   }
