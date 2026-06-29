@@ -158,25 +158,90 @@ function extractInstagramPostImageFromDocument() {
     .find(Boolean) || '';
 }
 
+function extractInstagramPostCaptionFromDocument(handle) {
+  const clean = (value) => String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const normalizedHandle = String(handle || '').replace(/^@+/, '').toLowerCase();
+  const isVisible = (element) => {
+    if (!element || !element.isConnected) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle(element);
+    return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || 1) > 0;
+  };
+  const visibleDialogs = Array.from(document.querySelectorAll('[role="dialog"], div[aria-modal="true"]'))
+    .filter(isVisible);
+  const scopedRoots = [
+    ...visibleDialogs,
+    ...visibleDialogs.flatMap((dialog) => Array.from(dialog.querySelectorAll('article')).filter(isVisible)),
+    ...Array.from(document.querySelectorAll('main article')).filter(isVisible),
+    document
+  ];
+  const stripHandlePrefix = (value) => {
+    let text = clean(value);
+    if (normalizedHandle) {
+      text = text.replace(new RegExp('^@?' + normalizedHandle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b\\s*', 'i'), '');
+    }
+    return clean(text);
+  };
+  const candidates = [];
+
+  scopedRoots.forEach((root, rootIndex) => {
+    Array.from(root.querySelectorAll('h1, article h1, div[dir="auto"], span[dir="auto"]')).forEach((element, elementIndex) => {
+      if (!isVisible(element)) return;
+      if (element.closest('header')) return;
+      const text = stripHandlePrefix(element.textContent);
+      if (text.length < 12) return;
+      if (/^(like|reply|view replies|add a comment|post)$/i.test(text)) return;
+      const inDialog = visibleDialogs.some((dialog) => dialog.contains(element));
+      candidates.push({
+        text,
+        score:
+          (text.length * 10)
+          + (element.tagName.toLowerCase() === 'h1' ? 5000 : 0)
+          + (inDialog ? 1000 : 0)
+          - (rootIndex * 100)
+          - elementIndex
+      });
+    });
+  });
+
+  const best = candidates.sort((a, b) => b.score - a.score)[0]?.text;
+  if (best) return best;
+
+  const metaDescription = Array.from(document.querySelectorAll('meta[property="og:description"], meta[name="description"]'))
+    .map((node) => stripHandlePrefix(node.getAttribute('content')))
+    .find((text) => text && text.length >= 12);
+  return metaDescription || '';
+}
+
 async function sourceFromActiveTab(tab) {
   const url = tab?.url || '';
   const source = sourceFromUrl(url);
-  const attachInstagramImage = async (value) => {
+  const attachInstagramPostData = async (value) => {
     if (!value.ok || value.source_type !== 'instagram' || !sourceNeedsInstagramPageLookup(url)) return value;
-    const imageUrl = await executeActiveTabFunction(tab.id, extractInstagramPostImageFromDocument);
-    return imageUrl ? { ...value, image_url: imageUrl } : value;
+    const [imageUrl, caption] = await Promise.all([
+      executeActiveTabFunction(tab.id, extractInstagramPostImageFromDocument),
+      executeActiveTabFunction(tab.id, extractInstagramPostCaptionFromDocument, [value.handle]),
+    ]);
+    return {
+      ...value,
+      ...(imageUrl ? { image_url: imageUrl } : {}),
+      ...(caption ? { description: caption } : {}),
+    };
   };
-  if (source.ok || !sourceNeedsInstagramPageLookup(url)) return await attachInstagramImage(source);
+  if (source.ok || !sourceNeedsInstagramPageLookup(url)) return await attachInstagramPostData(source);
 
   const titleHandle = instagramHandleFromTitle(tab?.title || '');
-  if (titleHandle) return await attachInstagramImage(sourceFromInstagramHandle(titleHandle, tab.url));
+  if (titleHandle) return await attachInstagramPostData(sourceFromInstagramHandle(titleHandle, tab.url));
 
   const handle = await executeActiveTabFunction(tab.id, extractInstagramHandleFromDocument);
   if (!handle) {
     return { ok: false, reason: 'Could not read the Instagram username from this post. Try waiting for the post to fully load, then click the extension again.' };
   }
 
-  return await attachInstagramImage(sourceFromInstagramHandle(handle, tab.url));
+  return await attachInstagramPostData(sourceFromInstagramHandle(handle, tab.url));
 }
 
 function openOptionsForActiveSource() {

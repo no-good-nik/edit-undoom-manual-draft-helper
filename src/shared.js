@@ -187,21 +187,97 @@ function classifyDraftTags(value, tagOptions, prefix) {
   return { existing, newlyCreated };
 }
 
+function joinTagLabels(tags) {
+  const seen = new Set();
+  const labels = [];
+  for (const tag of tags) {
+    const name = String(tag?.name || tag || '').trim();
+    const key = String(tag?.slug || name).toLowerCase();
+    if (!name || seen.has(key)) continue;
+    labels.push(name);
+    seen.add(key);
+  }
+  return labels.join(', ');
+}
+
+function inferTagsFromText(value) {
+  const text = String(value || '');
+  const tags = [];
+  const add = (pattern, tag) => {
+    if (pattern.test(text)) tags.push(tag);
+  };
+
+  add(/\bimprov\b/i, { name: 'Improv', slug: 'type-improv' });
+  add(/\bcomedy\b/i, { name: 'Comedy', slug: 'type-comedy' });
+  add(/\b(?:board games?|game|chess)\b/i, { name: 'Board Games', slug: 'type-board-games' });
+  add(/\bonline\s+games?\b/i, { name: 'Online Games', slug: 'type-online-games' });
+  add(/\btaskmaster\b/i, { name: 'Taskmaster', slug: 'type-taskmaster' });
+  add(/\bworld cup watch part(?:y|ies)\b/i, { name: 'Sports Screenings', slug: 'type-sports-screenings' });
+  add(/\bworld cup watch part(?:y|ies)\b/i, { name: 'Fundraisers', slug: 'type-fundraisers' });
+  add(/\bgay\b/i, { name: 'Queer Events', slug: 'type-queer-event' });
+  add(/\bsing(?:a|-a-|\s+a\s+)long\b/i, { name: 'Singalong', slug: 'type-singalong' });
+  add(/\bbeach\s+day\b/i, { name: 'Beach Day', slug: 'type-beach-day' });
+  add(/\bcribbage\b/i, { name: 'Board Games', slug: 'type-board-games' });
+  add(/\bbilliards\b/i, { name: 'Billiards', slug: 'type-billiards' });
+  add(/\bbowling\b/i, { name: 'Bowling', slug: 'type-bowling' });
+  add(/\bmarkets?\b/i, { name: 'Markets', slug: 'type-market' });
+  add(/\bfood\s+tour\b/i, { name: 'Food Tour', slug: 'type-food-tour' });
+  add(/\brun\b/i, { name: 'Sports and Recreation', slug: 'type-sports-and-recreation' });
+  add(/\bkaraoke\b/i, { name: 'Karaoke', slug: 'type-karaoke' });
+  add(/\bburlesque\b/i, { name: 'Burlesque', slug: 'type-burlesque' });
+  add(/\bopen\s+mic\b/i, { name: 'Open Mic', slug: 'type-open-mic' });
+  add(/\bsmut\s+slam\b/i, { name: 'Open Mic', slug: 'type-open-mic' });
+  add(/\bdrag\b/i, { name: 'Drag Events', slug: 'type-drag-events' });
+  add(/\bdrag\b/i, { name: 'Queer Events', slug: 'type-queer-event' });
+  add(/\btrivia\b/i, { name: 'Trivia', slug: 'type-trivia' });
+  add(/\bbingo\b/i, { name: 'Bingo', slug: 'type-bingo' });
+  add(/\bday\s+camps?\b/i, { name: 'Day Camps', slug: 'type-day-camp' });
+  add(/\bskateboard(?:ing)?\b/i, { name: 'Skateboarding', slug: 'type-skateboarding' });
+  add(/\bceremon(?:y|ies)\b/i, { name: 'Ceremonies', slug: 'type-ceremony' });
+  add(/\bgaller(?:y|ies)\b/i, { name: 'Art', slug: 'type-art' });
+
+  if (/\blessons?\b/i.test(text) || /\bday\s+camps?\b/i.test(text)) {
+    tags.push({ name: '#Stuff to Learn', slug: 'hash-stuff-to-learn' });
+  }
+
+  return tags;
+}
+
+function mergedTypeTagText(defaultTags, inferredTags, sourceText) {
+  const inferredTypeTags = inferredTags.filter((tag) => String(tag.slug || '').startsWith('type-'));
+  const removeMusic = inferredTypeTags.length > 0 && (
+    /\b(improv|comedy|board games?|game|chess|online\s+games?|taskmaster|world cup watch part(?:y|ies)|cribbage|billiards|bowling|markets?|food\s+tour|run|karaoke|burlesque|open\s+mic|smut\s+slam|drag|trivia|bingo|day\s+camps?|lessons?|skateboard(?:ing)?|ceremon(?:y|ies)|galler(?:y|ies))\b/i.test(sourceText)
+  );
+  const baseTags = splitTagList(defaultTags)
+    .filter((tag) => !(removeMusic && /^music$/i.test(tag)));
+  return joinTagLabels([...baseTags, ...inferredTypeTags]);
+}
+
+function bucketTagForDraft(mappingValue, inferredTags) {
+  if (inferredTags.some((tag) => tag.slug === 'hash-stuff-to-learn')) {
+    return '#Stuff to Learn [hash-stuff-to-learn]';
+  }
+  return mappingValue.private_bucket_tag || mappingValue.default_bucket_tag || '#Stuff to Do [hash-stuff-to-do]';
+}
+
 function queryParamsForDraft(source, mappingValue, tagOptions = {}) {
   const params = new URLSearchParams();
-  const typeTags = classifyDraftTags(mappingValue.new_type_tags || mappingValue.default_type_tags || '', tagOptions.type_tags, 'type-');
+  const inferredTags = inferTagsFromText(source.description || '');
+  const typeTagText = mergedTypeTagText(mappingValue.new_type_tags || mappingValue.default_type_tags || '', inferredTags, source.description || '');
+  const typeTags = classifyDraftTags(typeTagText, tagOptions.type_tags, 'type-');
   const areaTags = classifyDraftTags(mappingValue.new_area_tags || mappingValue.default_area_tags || '', tagOptions.area_tags, 'area-');
   const venueOverride = mappingValue.event_venue || mappingValue.default_venue || mappingValue.label || '';
 
   params.set('source_url', source.source_url || '');
   params.set('image_url', source.image_url || mappingValue.image_url || mappingValue.default_image_url || '');
+  params.set('description', source.description || '');
   params.set('venue_name', venueOverride ? 'Other / manual entry' : '');
   params.set('event_venue', venueOverride);
   params.set('manual_type_tags', typeTags.existing.join(', '));
   params.set('manual_area_tags', areaTags.existing.join(', '));
   params.set('new_type_tags', typeTags.newlyCreated.join(', '));
   params.set('new_area_tags', areaTags.newlyCreated.join(', '));
-  params.set('private_bucket_tag', mappingValue.private_bucket_tag || mappingValue.default_bucket_tag || '#Stuff to Do [hash-stuff-to-do]');
+  params.set('private_bucket_tag', bucketTagForDraft(mappingValue, inferredTags));
   if (mappingValue.parser_type) params.set('parser_type', mappingValue.parser_type);
 
   for (const [key, value] of Object.entries(mappingValue.extra_params || {})) {

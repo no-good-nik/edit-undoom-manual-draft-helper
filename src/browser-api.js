@@ -35,14 +35,14 @@ function openOptionsPage(query = '') {
   createTab(optionsUrl);
 }
 
-function executeActiveTabFunction(tabId, func) {
+function executeActiveTabFunction(tabId, func, args = []) {
   return new Promise((resolve) => {
     if (!browserApi.scripting?.executeScript || !tabId) {
       resolve(null);
       return;
     }
 
-    browserApi.scripting.executeScript({ target: { tabId }, func }, (results) => {
+    browserApi.scripting.executeScript({ target: { tabId }, func, args }, (results) => {
       if (browserApi.runtime?.lastError) {
         resolve(null);
         return;
