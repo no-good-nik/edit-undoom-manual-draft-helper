@@ -5,11 +5,15 @@ const venueValueEl = document.getElementById('venueValue');
 const typeTagsValueEl = document.getElementById('typeTagsValue');
 const areaTagsValueEl = document.getElementById('areaTagsValue');
 const draftButton = document.getElementById('draftButton');
+const manualVenuePanel = document.getElementById('manualVenuePanel');
+const manualVenueSelect = document.getElementById('manualVenueSelect');
+const manualVenueButton = document.getElementById('manualVenueButton');
 const sourceButton = document.getElementById('sourceButton');
 const optionsButton = document.getElementById('optionsButton');
 
 let activeSource = null;
 let activeMapping = null;
+let activeMappingList = DEFAULT_MAPPING;
 let activeFormUrl = DEFAULT_FORM_URL;
 let activeTagOptions = { type_tags: [], area_tags: [] };
 
@@ -256,6 +260,41 @@ function openOptionsForActiveSource() {
   openOptionsPage(params.toString());
 }
 
+function labelForMapping(mapping) {
+  return String(mapping?.label || mapping?.event_venue || mapping?.default_venue || mapping?.venue_name || mapping?.instagram_user_name || mapping?.handle || '').trim();
+}
+
+function selectableVenueEntries(mapping) {
+  const entries = Array.isArray(mapping)
+    ? mapping.map((value, index) => ({ key: 'row-' + index, value: value || {}, label: labelForMapping(value) }))
+    : Object.entries(mapping || {}).map(([key, value]) => ({ key, value: value || {}, label: labelForMapping(value) }));
+
+  return entries
+    .filter((entry) => entry.label)
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function populateManualVenueSelect(mapping) {
+  const entries = selectableVenueEntries(mapping);
+
+  manualVenueSelect.textContent = '';
+  for (const entry of entries) {
+    const option = document.createElement('option');
+    option.value = entry.key;
+    option.textContent = entry.label;
+    manualVenueSelect.append(option);
+  }
+
+  const hasEntries = entries.length > 0;
+  manualVenuePanel.hidden = !hasEntries;
+  manualVenueButton.disabled = !hasEntries || !activeSource?.source_url;
+}
+
+function selectedManualVenueMapping() {
+  const key = manualVenueSelect.value;
+  return selectableVenueEntries(activeMappingList).find((entry) => entry.key === key)?.value || null;
+}
+
 function renderMatch(source, mapping) {
   activeSource = source;
   activeMapping = mapping;
@@ -263,10 +302,11 @@ function renderMatch(source, mapping) {
   sourceValueEl.textContent = `${source.source_type}: @${source.handle}`;
   venueValueEl.textContent = mapping.label || mapping.event_venue || mapping.default_venue || '(unnamed)';
   typeTagsValueEl.textContent = mapping.new_type_tags || mapping.default_type_tags || '-';
-  areaTagsValueEl.textContent = mapping.new_area_tags || mapping.default_area_tags || '-';
+  areaTagsValueEl.textContent = mapping.new_area_tags || mapping.area || mapping.default_area_tags || '-';
   detailsEl.hidden = false;
   draftButton.disabled = false;
   sourceButton.disabled = false;
+  populateManualVenueSelect(activeMappingList);
 }
 
 async function fetchSheetMapping(feedUrl) {
@@ -346,12 +386,16 @@ async function init() {
     activeTagOptions = { type_tags: [], area_tags: [] };
   }
 
+  activeMappingList = mapping;
+  populateManualVenueSelect(mapping);
+
   const match = findMapping(mapping, source.handle);
 
   if (!match) {
     setStatus(`No mapping found for @${source.handle}. Add it in Options.` + mappingWarning, 'warn');
     sourceButton.disabled = false;
     activeSource = source;
+    populateManualVenueSelect(mapping);
     return;
   }
 
@@ -362,6 +406,12 @@ async function init() {
 draftButton.addEventListener('click', async () => {
   if (!activeSource || !activeMapping) return;
   await createTab(manualDraftUrl(activeFormUrl, activeSource, activeMapping, activeTagOptions));
+});
+
+manualVenueButton.addEventListener('click', async () => {
+  const mapping = selectedManualVenueMapping();
+  if (!activeSource || !mapping) return;
+  await createTab(manualDraftUrl(activeFormUrl, activeSource, mapping, activeTagOptions));
 });
 
 sourceButton.addEventListener('click', async () => {

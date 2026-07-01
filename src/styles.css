@@ -183,3 +183,13 @@ pre {
 .inline-choice input {
   width: auto;
 }
+
+.manual-panel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #d7d7d0;
+}
+
+.manual-panel label {
+  margin-bottom: 8px;
+}
