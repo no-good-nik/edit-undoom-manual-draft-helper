@@ -265,7 +265,7 @@ function queryParamsForDraft(source, mappingValue, tagOptions = {}) {
   const inferredTags = inferTagsFromText(source.description || '');
   const typeTagText = mergedTypeTagText(mappingValue.new_type_tags || mappingValue.default_type_tags || '', inferredTags, source.description || '');
   const typeTags = classifyDraftTags(typeTagText, tagOptions.type_tags, 'type-');
-  const areaTags = classifyDraftTags(mappingValue.new_area_tags || mappingValue.default_area_tags || '', tagOptions.area_tags, 'area-');
+  const areaTags = classifyDraftTags(mappingValue.new_area_tags || mappingValue.area || mappingValue.default_area_tags || '', tagOptions.area_tags, 'area-');
   const venueOverride = mappingValue.event_venue || mappingValue.default_venue || mappingValue.label || '';
 
   params.set('source_url', source.source_url || '');

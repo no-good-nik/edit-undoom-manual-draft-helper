@@ -11,6 +11,8 @@ The extension reads the current tab URL, extracts the page handle, looks that ha
 - `private_bucket_tag`
 - optional `parser_type`
 
+If the current Instagram account is not mapped, or if the post is from a performer rather than the venue, the popup also lets you choose any existing venue/org from the synced mapping list and open the manual draft form with that venue's defaults.
+
 ## Browser Support
 
 This is a Manifest V3 WebExtension.
